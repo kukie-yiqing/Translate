@@ -291,10 +291,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     // Load configuration
     LoadConfig();
 
-    // Load custom icons from icon directory with NULL hInst for LR_LOADFROMFILE
-    g_hIconTranslate = (HICON)LoadImageW(NULL, GetAppPath(L"icon\\translate.ico").c_str(), IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
-    g_hIconHistory = (HICON)LoadImageW(NULL, GetAppPath(L"icon\\history.ico").c_str(), IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
-    g_hIconClear = (HICON)LoadImageW(NULL, GetAppPath(L"icon\\clear.ico").c_str(), IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
+    // Load custom icons from internal resources
+    g_hIconTranslate = (HICON)LoadImageW(g_hInstance, MAKEINTRESOURCEW(1), IMAGE_ICON, 32, 32, 0);
+    g_hIconHistory = (HICON)LoadImageW(g_hInstance, MAKEINTRESOURCEW(2), IMAGE_ICON, 16, 16, 0);
+    g_hIconClear = (HICON)LoadImageW(g_hInstance, MAKEINTRESOURCEW(3), IMAGE_ICON, 16, 16, 0);
 
     // Register MainWindow Class
     WNDCLASSEXW wcex = { 0 };
@@ -606,9 +606,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                     if (g_hIconHistory) DestroyIcon(g_hIconHistory);
                     if (g_hIconClear) DestroyIcon(g_hIconClear);
 
-                    g_hIconTranslate = (HICON)LoadImageW(NULL, GetAppPath(L"icon\\translate.ico").c_str(), IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
-                    g_hIconHistory = (HICON)LoadImageW(NULL, GetAppPath(L"icon\\history.ico").c_str(), IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
-                    g_hIconClear = (HICON)LoadImageW(NULL, GetAppPath(L"icon\\clear.ico").c_str(), IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
+                    g_hIconTranslate = (HICON)LoadImageW(g_hInstance, MAKEINTRESOURCEW(1), IMAGE_ICON, 32, 32, 0);
+                    g_hIconHistory = (HICON)LoadImageW(g_hInstance, MAKEINTRESOURCEW(2), IMAGE_ICON, 16, 16, 0);
+                    g_hIconClear = (HICON)LoadImageW(g_hInstance, MAKEINTRESOURCEW(3), IMAGE_ICON, 16, 16, 0);
 
                     if (g_hIconTranslate) {
                         g_nid.hIcon = g_hIconTranslate;
