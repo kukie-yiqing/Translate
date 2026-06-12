@@ -40,7 +40,6 @@ HWND g_hMainWnd = NULL;
 HWND g_hAboutWnd = NULL;
 HWND g_hEditInput = NULL;
 NOTIFYICONDATAW g_nid = { 0 };
-HHOOK g_hKeyboardHook = NULL;
 WNDPROC g_pOriginalEditProc = NULL;
 
 // Global Icons
@@ -89,7 +88,6 @@ RECT g_rectPlayUs = { 0 };
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK AboutWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK EditSubclassProc(HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK LowLevelKeyboardProc(int, WPARAM, LPARAM);
 void ShowMainWindow(bool show);
 void ShowAboutWindow();
 void PerformSearch(const std::wstring& text);
@@ -354,9 +352,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     // Register Hotkey
     RegisterWakeupHotkey();
 
-    // Set system hook for double Ctrl+C
-    g_hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, hInstance, 0);
-
     // System Tray Setup
     g_nid.cbSize = sizeof(NOTIFYICONDATAW);
     g_nid.hWnd = g_hMainWnd;
@@ -377,9 +372,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     // Cleanup
     WriteLog(L"程序准备退出");
     Shell_NotifyIconW(NIM_DELETE, &g_nid);
-    if (g_hKeyboardHook) {
-        UnhookWindowsHookEx(g_hKeyboardHook);
-    }
     UnregisterHotKey(g_hMainWnd, HOTKEY_WAKEUP_ID);
     if (hMutex) {
         ReleaseMutex(hMutex);
@@ -395,50 +387,6 @@ void RegisterWakeupHotkey() {
     RegisterHotKey(g_hMainWnd, HOTKEY_WAKEUP_ID, g_hotkeyMod, g_hotkeyVk);
 }
 
-// Low-level Keyboard Hook for Ctrl+C double press detection
-LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode == HC_ACTION) {
-        KBDLLHOOKSTRUCT* pKey = (KBDLLHOOKSTRUCT*)lParam;
-        if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-            // Check if key is 'C' or 'c'
-            if (pKey->vkCode == 'C' || pKey->vkCode == 'c') {
-                // Check if Ctrl is held down
-                if (GetAsyncKeyState(VK_CONTROL) & 0x8000) {
-                    auto now = std::chrono::steady_clock::now();
-                    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_lastCtrlCTime).count();
-                    g_lastCtrlCTime = now;
-                    
-                    if (diff < 500) { // Double press detected within 500ms
-                        // Wait 50ms for clipboard content to stabilize
-                        Sleep(50);
-                        
-                        // Try to read clipboard
-                        if (OpenClipboard(NULL)) {
-                            HANDLE hData = GetClipboardData(CF_UNICODETEXT);
-                            if (hData) {
-                                wchar_t* pText = (wchar_t*)GlobalLock(hData);
-                                if (pText) {
-                                    std::wstring selectedText = Trim(pText);
-                                    GlobalUnlock(hData);
-                                    CloseClipboard();
-                                    
-                                    if (!selectedText.empty() && selectedText.length() < 100) {
-                                        PerformSearch(selectedText);
-                                        // Show window at cursor position
-                                        ShowMainWindow(true);
-                                    }
-                                }
-                            } else {
-                                CloseClipboard();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return CallNextHookEx(g_hKeyboardHook, nCode, wParam, lParam);
-}
 
 // Subclass Edit control to handle enter and escape key press
 LRESULT CALLBACK EditSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -467,7 +415,7 @@ LRESULT CALLBACK EditSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 // Layout helper
 void UpdateLayout(HWND hWnd) {
     // Determine required height
-    int height = 16 + 32 + 12; // margins, edit control
+    int height = 16 + 28 + 16; // 16px top margin + 28px edit control + 16px bottom margin
     
     if (g_showHistory) {
         height += 8; // spacing
@@ -511,11 +459,11 @@ void UpdateLayout(HWND hWnd) {
         
         height += 16; // bottom padding
     } else {
-        height += 16; // default bottom padding when no result
+        height = 60; // default height when no result
     }
     
     if (height > 350) height = 350;
-    if (height < 70) height = 70;
+    if (height < 60) height = 60;
 
     // Resize window
     RECT rc;
@@ -673,7 +621,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             }
             
             // Check if user clicked close button
-            RECT rcClose = { 242, 18, 266, 42 };
+            RECT rcClose = { 240, 18, 264, 42 };
             if (PtInRect(&rcClose, pt)) {
                 ShowMainWindow(false);
                 break;
@@ -784,10 +732,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             // Draw custom vector close button (×) using sharp line GDI drawing
             HPEN hPenClose = CreatePen(PS_SOLID, 2, COLOR_TEXT_MUTED);
             HPEN hOldPenClose = (HPEN)SelectObject(memDC, hPenClose);
-            MoveToEx(memDC, 249, 25, NULL);
-            LineTo(memDC, 259, 35);
-            MoveToEx(memDC, 259, 25, NULL);
-            LineTo(memDC, 249, 35);
+            MoveToEx(memDC, 247, 25, NULL);
+            LineTo(memDC, 257, 35);
+            MoveToEx(memDC, 257, 25, NULL);
+            LineTo(memDC, 247, 35);
             SelectObject(memDC, hOldPenClose);
             DeleteObject(hPenClose);
             
