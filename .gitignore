@@ -1,0 +1,21 @@
+# Windows build artifacts
+*.exe
+*.obj
+*.res
+*.pdb
+*.ilk
+*.idea
+
+# Runtime logs
+/logs/
+
+# Local configuration and history files
+/config.ini
+/history.txt
+
+# Temp/Cache directories
+.vs/
+/out/
+/build/
+*.tmp
+*.log
